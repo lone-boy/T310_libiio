@@ -68,18 +68,20 @@ int main() {
 
     device.set_rx_samprate(0,4e6);
     device.set_rx_samprate(1,4e6);
+
+    if(device.set_multichip_phase_sync(freq) == 0){
+        fprintf(stdout,"multichip sync true\n");
+    }
+    else{
+        fprintf(stdout,"multichip sync false\n");
+    }
 //    device.set_tx_samprate(0,4e6);
 //    device.set_tx_samprate(1,4e6);
     fprintf(stdout,"rx0 freq = %lf rx1 freq = %lf\n",device.get_rx_freq(0),device.get_rx_freq(1));
     fprintf(stdout,"tx0 freq = %lf tx1 freq = %lf\n",device.get_tx_freq(0),device.get_tx_freq(1));
     fprintf(stdout,"rx fs = %lf tx fs = %lf\n",device.get_rx_samprate(0),device.get_tx_samprate(0));
     fprintf(stdout,"rx1 fs = %lf tx1 fs = %lf\n",device.get_rx_samprate(1),device.get_tx_samprate(1));
-    if(device.set_multichip_phase_sync(freq)){
-        fprintf(stdout,"multichip sync true\n");
-    }
-    else{
-        fprintf(stdout,"multichip sync false\n");
-    }
+
 
 
     /**
@@ -117,20 +119,17 @@ int main() {
             plt::plot(x_data,recv1_i,"b");
             plt::plot(x_data,recv1_q,"g");
 
+            plt::plot(x_data,recv2_i,"r");
+            plt::plot(x_data,recv2_q,"y");
+
+            plt::draw();
+
+            plt::figure(2);
+            plt::clf();
+            plt::plot(x_data,recv3_i,"b");
+            plt::plot(x_data,recv3_q,"g");
             plt::plot(x_data,recv4_i,"r");
             plt::plot(x_data,recv4_q,"y");
-
-//            plt::plot(x_data,recv2_i,"r");
-//            plt::plot(x_data,recv2_q,"y");
-//
-//            plt::draw();
-//
-//            plt::figure(2);
-//            plt::clf();
-//            plt::plot(x_data,recv3_i,"b");
-//            plt::plot(x_data,recv3_q,"g");
-//            plt::plot(x_data,recv4_i,"r");
-//            plt::plot(x_data,recv4_q,"y");
 
 
             plt::draw();
