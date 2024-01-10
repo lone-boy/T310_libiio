@@ -49,6 +49,11 @@ public:
     double get_rx_samprate(int device_index);
     double get_tx_samprate(int device_index);
 
+    bool set_rx_gain(int device_index,int channel,double gain);
+
+
+    bool set_multichip_phase_sync(long long lo);
+
 
     /**
      * ad9361B      ad9361

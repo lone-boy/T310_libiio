@@ -4,6 +4,7 @@
 #include "antsdrDevice.h"
 #include <iostream>
 #include <functional>
+#include "ad9361.h"
 
 antsdrDevice::antsdrDevice()
     :is_Inited_(false),rx_user_(NULL),rx_buf_(NULL),rx_thread_(NULL)
@@ -98,6 +99,9 @@ int antsdrDevice::open() {
         fprintf(stderr,"cannot find ad9361B rx iq.\n");
         return -1;
     }
+
+    iio_channel_attr_write(phy_rx_one_chn0_, "gain_control_mode", "manual");
+    iio_channel_attr_write(phy_rx_two_chn0_, "gain_control_mode", "manual");
     fprintf(stdout,"Find two ad9361 device.\nWelcom to ANTSDR t310.\n");
     is_Inited_ = true;
     return 0;
@@ -317,7 +321,7 @@ void antsdrDevice::RXSyncThread(int channels) {
     while(rx_running_){
         int n_read = iio_buffer_refill(rx_buf_);
         if(n_read > 0){
-            trans.data = (int16_t*) iio_buffer_refill(rx_buf_);
+            trans.data = (int16_t*) iio_buffer_start(rx_buf_);
             trans.user = rx_user_;
             trans.length = n_read / 4;
             trans.channels = channels;
@@ -415,6 +419,30 @@ bool antsdrDevice::config_stream_device(iio_channel **channel, int chid, bool tx
 const char* antsdrDevice::get_chan_name(const char *type, int id) {
     snprintf(tmpstr_,sizeof(tmpstr_),"%s%d",type,id);
     return tmpstr_;
+}
+
+bool antsdrDevice::set_multichip_phase_sync(long long lo){
+    if(antsdr_ctx_ == NULL)
+        return false;
+    return ad9361_fmcomms5_phase_sync(antsdr_ctx_,lo);
+}
+
+bool antsdrDevice::set_rx_gain(int device_index, int channel,double gain) {
+    int r;
+    if(device_index == 0){
+        if(channel == 0)
+            r = iio_channel_attr_write_double(phy_rx_one_chn0_, "hardwaregain", gain);
+        else
+            r = iio_channel_attr_write_double(phy_rx_one_chn1_, "hardwaregain", gain);
+
+    }
+    else{
+        if(channel == 0)
+            r = iio_channel_attr_write_double(phy_rx_two_chn0_, "hardwaregain", gain);
+        else
+            r = iio_channel_attr_write_double(phy_rx_two_chn1_, "hardwaregain", gain);
+    }
+    return r == 0;
 }
 
 
