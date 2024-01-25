@@ -7,6 +7,8 @@
 
 #include "iio.h"
 #include "thread"
+#include <cstring>
+#include "math.h"
 
 
 #define RXDATA0CHANNEL_I "voltage0"
@@ -48,6 +50,11 @@ public:
     bool set_tx_samprate(int device_index,double fs);
     double get_rx_samprate(int device_index);
     double get_tx_samprate(int device_index);
+    bool set_rx_gain(int device_index,double gain);
+    bool set_tx_gain(int device_index,double gain);
+
+    void stop_rx();
+    void stop_tx();
 
 
     /**
@@ -64,9 +71,12 @@ private:
     struct iio_context *antsdr_ctx_;
     struct iio_device  *antsdr_rx_one_;
     struct iio_device  *antsdr_rx_two_;
+    struct iio_device  *antsdr_tx_one_;
+    struct iio_device  *antsdr_tx_two_;
     struct iio_device  *phy_dev_one_;
     struct iio_device  *phy_dev_two_;
     struct iio_buffer  *rx_buf_;
+    struct iio_buffer  *tx_buf_;
     struct iio_channel *phy_rx_one_chn0_,*phy_rx_one_chn1_;
     struct iio_channel *phy_tx_one_chn0_,*phy_tx_one_chn1_;
     struct iio_channel *phy_rx_two_chn0_,*phy_rx_two_chn1_;
@@ -76,6 +86,11 @@ private:
     struct iio_channel *rxtwo0_i_,*rxtwo0_q_;
     struct iio_channel *rxone1_i_,*rxone1_q_;
     struct iio_channel *rxtwo1_i_,*rxtwo1_q_;
+
+    struct iio_channel *txone0_i_,*txone0_q_;
+    struct iio_channel *txone1_i_,*txone1_q_;
+    struct iio_channel *txtwo0_i_,*txtwo0_q_;
+    struct iio_channel *txtwo1_i_,*txtwo1_q_;
 
 
     bool is_Inited_;
@@ -88,12 +103,9 @@ private:
 
 
 private:
-    bool config_rx_stream_device0_rx0();
-    bool config_rx_stream_device0_rx1();
-    bool config_rx_stream_device1_rx0();
-    bool config_rx_stream_device1_rx1();
 
     bool config_stream_device(iio_channel **channel,int chid,bool tx,struct iio_device *dev);
+    void disable_chan(iio_channel ** chan);
     const char* get_chan_name(const char *type,int id);
 };
 
