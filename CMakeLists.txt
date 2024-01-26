@@ -14,4 +14,4 @@ endif()
 
 add_executable(T310_libiio main.cpp antsdrDevice.h antsdrDevice.cpp)
 
-target_link_libraries(T310_libiio iio pthread)
+target_link_libraries(T310_libiio iio pthread Python3::Python Python3::NumPy)
