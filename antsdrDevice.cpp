@@ -356,7 +356,6 @@ bool antsdrDevice::start_rx(RXdataCallback handler,int channels,void *user,int b
         config_stream_device(&rxtwo1_i_,6, false,antsdr_rx_one_);
         config_stream_device(&rxtwo1_q_,7, false,antsdr_rx_one_);
     }
-    iio_device_set_kernel_buffers_count(antsdr_rx_one_,2);
     if(! rx_running_ && !rx_thread_){
         rx_running_ = true;
         rx_thread_ = new std::thread(std::bind(&antsdrDevice::RXSyncThread,this,channels));
@@ -372,7 +371,7 @@ void antsdrDevice::RXSyncThread(int channels) {
     while(rx_running_){
         int n_read = iio_buffer_refill(rx_buf_);
         if(n_read > 0){
-            trans.data = (int16_t*) iio_buffer_start(rx_buf_);
+            trans.data = (int16_t*) iio_buffer_refill(rx_buf_);
             trans.user = rx_user_;
             trans.length = n_read / 4;
             trans.channels = channels;

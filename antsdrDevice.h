@@ -56,6 +56,11 @@ public:
     void stop_rx();
     void stop_tx();
 
+    bool set_rx_gain(int device_index,int channel,double gain);
+
+
+    bool set_multichip_phase_sync(long long lo);
+
 
     /**
      * ad9361B      ad9361
