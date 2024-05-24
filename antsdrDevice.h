@@ -54,7 +54,6 @@ public:
 
     bool set_multichip_phase_sync(long long lo);
 
-
     /**
      * ad9361B      ad9361
      * rx2 rx1      rx2 rx1
@@ -62,16 +61,22 @@ public:
      * 0    0       0   0   disable
      * */
     bool start_rx(RXdataCallback handler,int channels,void *user,int buff_size);
+    void stop_rx();
+
     void RXSyncThread(int channels);
 
     bool start_tx(int channels);
+    void stop_tx();
 private:
     struct iio_context *antsdr_ctx_;
     struct iio_device  *antsdr_rx_one_;
     struct iio_device  *antsdr_rx_two_;
+    struct iio_device  *antsdr_tx_one_;
+    struct iio_device  *antsdr_tx_two_;
     struct iio_device  *phy_dev_one_;
     struct iio_device  *phy_dev_two_;
     struct iio_buffer  *rx_buf_;
+    struct iio_buffer  *tx_buf_;
     struct iio_channel *phy_rx_one_chn0_,*phy_rx_one_chn1_;
     struct iio_channel *phy_tx_one_chn0_,*phy_tx_one_chn1_;
     struct iio_channel *phy_rx_two_chn0_,*phy_rx_two_chn1_;
@@ -82,6 +87,11 @@ private:
     struct iio_channel *rxone1_i_,*rxone1_q_;
     struct iio_channel *rxtwo1_i_,*rxtwo1_q_;
 
+
+    struct iio_channel *txone0_i_,*txone0_q_;
+    struct iio_channel *txone1_i_,*txone1_q_;
+    struct iio_channel *txtwo0_i_,*txtwo0_q_;
+    struct iio_channel *txtwo1_i_,*txtwo1_q_;
 
     bool is_Inited_;
     bool rx_running_;
@@ -100,6 +110,9 @@ private:
 
     bool config_stream_device(iio_channel **channel,int chid,bool tx,struct iio_device *dev);
     const char* get_chan_name(const char *type,int id);
+
+    void disable_chan(iio_channel ** chan);
+
 };
 
 #endif //T310_LIBIIO_ANTSDRDEVICE_H

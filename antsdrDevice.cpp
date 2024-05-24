@@ -5,23 +5,58 @@
 #include <iostream>
 #include <functional>
 #include "ad9361.h"
+#include "math.h"
 
 antsdrDevice::antsdrDevice()
     :is_Inited_(false),rx_user_(NULL),rx_buf_(NULL),rx_thread_(NULL)
     ,rx_handler_(NULL), rx_running_(false)
 {
+    rxone0_i_ = NULL;
+    rxone0_q_ = NULL;
+    rxtwo0_i_ = NULL;
+    rxtwo0_q_ = NULL;
+    rxone1_i_ = NULL;
+    rxone1_q_ = NULL;
+    rxtwo1_i_ = NULL;
+    rxtwo1_q_ = NULL;
 
+    txone0_i_ = NULL;
+    txone0_q_ = NULL;
+    txtwo0_i_ = NULL;
+    txtwo0_q_ = NULL;
+    txone1_i_ = NULL;
+    txone1_q_ = NULL;
+    txtwo1_i_ = NULL;
+    txtwo1_q_ = NULL;
 }
 
 antsdrDevice::~antsdrDevice() {
 
 }
 
+std::vector<int16_t> generateCosineSignal(double frequency, double sampleRate, double durationInSeconds) {
+    std::vector<int16_t> signal;
+    double angularFrequency = 2 * M_PI * frequency;
+    double maxAmplitude = 65536.0; // Maximum positive value for int16_t
+
+    int numSamples = static_cast<int>(durationInSeconds * sampleRate);
+
+    for (int i = 0; i < numSamples; i++) {
+        double time = static_cast<double>(i) / sampleRate;
+        double sample = cos(angularFrequency * time);
+        int16_t scaledSample = static_cast<int16_t>(round(sample * maxAmplitude));
+        signal.push_back(scaledSample);
+    }
+
+    return signal;
+}
+
+
 int antsdrDevice::open() {
     if(is_Inited_)
         return 0;
 
-    antsdr_ctx_ = iio_create_context_from_uri("ip:192.168.1.20");
+    antsdr_ctx_ = iio_create_context_from_uri("ip:192.168.1.10");
     if(antsdr_ctx_ == NULL){
         fprintf(stderr,"cannot find device.\n");
         return -1;
@@ -97,6 +132,18 @@ int antsdrDevice::open() {
     antsdr_rx_two_ = iio_context_find_device(antsdr_ctx_,CAP_DEVICE2);
     if(antsdr_rx_two_ == NULL){
         fprintf(stderr,"cannot find ad9361B rx iq.\n");
+        return -1;
+    }
+
+    antsdr_tx_one_ = iio_context_find_device(antsdr_ctx_,DDS_DEVICE1);
+    if(antsdr_tx_one_ == NULL){
+        fprintf(stderr,"cannot find ad9361A tx iq.\n");
+        return -1;
+    }
+
+    antsdr_tx_two_ = iio_context_find_device(antsdr_ctx_,DDS_DEVICE2);
+    if(antsdr_tx_two_ == NULL){
+        fprintf(stderr,"cannot find ad9361B tx iq.\n");
         return -1;
     }
 
@@ -224,7 +271,6 @@ bool antsdrDevice::set_tx_samprate(int device_index, double fs) {
         case 0:{
             r = iio_channel_attr_write_longlong(phy_tx_one_chn0_,"sampling_frequency",fs);
             iio_channel_attr_write_longlong(phy_tx_one_chn0_, "rf_bandwidth", fs);
-
             break;
         }
         case 1:{
@@ -271,7 +317,6 @@ double antsdrDevice::get_tx_samprate(int device_index) {
             return (double)fs;
     }
     if(device_index == 1){
-
         r = iio_channel_attr_read_longlong(phy_tx_two_chn0_,"sampling_frequency",&fs);
         if(r == 0)
             return (double)fs;
@@ -316,7 +361,7 @@ bool antsdrDevice::start_rx(RXdataCallback handler,int channels,void *user,int b
 
 void antsdrDevice::RXSyncThread(int channels) {
     sdr_transfer trans;
-
+    iio_device_set_kernel_buffers_count(antsdr_rx_one_,2);
     rx_buf_ = iio_device_create_buffer(antsdr_rx_one_,buffer_size_, false);
     while(rx_running_){
         int n_read = iio_buffer_refill(rx_buf_);
@@ -405,12 +450,58 @@ bool antsdrDevice::config_rx_stream_device1_rx1() {
 }
 
 bool antsdrDevice::start_tx(int channels) {
-    return false;
+    int channelsCnt = 0;
+    if(channels & 0x1){
+        config_stream_device(&txone0_i_,0, true,antsdr_tx_one_);
+        config_stream_device(&txone0_q_,1, true,antsdr_tx_one_);
+        channelsCnt++;
+    }
+    if(channels  & 0x2){
+        config_stream_device(&txone1_i_,2, true,antsdr_tx_one_);
+        config_stream_device(&txone1_q_,3, true,antsdr_tx_one_);
+        channelsCnt++;
+    }
+    if(channels & 0x4){
+        config_stream_device(&txtwo0_i_,4, true,antsdr_tx_one_);
+        config_stream_device(&txtwo0_q_,5, true,antsdr_tx_one_);
+        channelsCnt++;
+    }
+    if(channels & 0x8){
+        config_stream_device(&txtwo1_i_,6, true,antsdr_tx_one_);
+        config_stream_device(&txtwo1_q_,7, true,antsdr_tx_one_);
+        channelsCnt++;
+    }
+    iio_device_set_kernel_buffers_count(antsdr_tx_one_,1);
+
+    /* create sin wave */
+    double frequency = 100e3;
+    double samprate = 3e6;
+    double duration = 1.0 / frequency * 30;
+    std::vector<int16_t> wave_signal = generateCosineSignal(frequency,samprate,duration);
+
+
+    tx_buf_ = iio_device_create_buffer(antsdr_tx_one_,wave_signal.size(), true);
+    auto *tx_buffer = (int16_t*) iio_buffer_start(tx_buf_);
+    for(int i = 0; i<wave_signal.size();i++){
+        tx_buffer[2*i] =  wave_signal[i];
+        tx_buffer[2*i+1] =  0;
+    }
+    ssize_t n_write = iio_buffer_push(tx_buf_);
+    if(n_write < 0){
+        fprintf(stderr,"tx send failed\n");
+        return false;
+    }else{
+        fprintf(stdout,"tx send %d samples.\n",n_write / 4);
+    }
+    return true;
 }
 
 bool antsdrDevice::config_stream_device(iio_channel **channel, int chid, bool tx,struct iio_device *dev) {
     *channel = iio_device_find_channel(dev, get_chan_name("voltage",chid),tx);
-    fprintf(stderr,"find device %d iq channel.\n",chid);
+    if (!*channel)
+        *channel = iio_device_find_channel(dev, get_chan_name("altvoltage", chid), tx);
+    printf("find channel %d\n",chid);
+
     if(*channel != NULL)
         iio_channel_enable(*channel);
     return *channel != NULL;
@@ -424,6 +515,8 @@ const char* antsdrDevice::get_chan_name(const char *type, int id) {
 bool antsdrDevice::set_multichip_phase_sync(long long lo){
     if(antsdr_ctx_ == NULL)
         return false;
+
+
     return ad9361_fmcomms5_phase_sync(antsdr_ctx_,lo);
 }
 
@@ -445,6 +538,47 @@ bool antsdrDevice::set_rx_gain(int device_index, int channel,double gain) {
     return r == 0;
 }
 
+void antsdrDevice::disable_chan(iio_channel **chan) {
+    if(*chan != NULL)
+        iio_channel_disable(*chan);
+    *chan = NULL;
+}
 
 
+void antsdrDevice::stop_rx() {
+    rx_running_ = false;
+    if(rx_thread_ && rx_thread_->joinable()) {
+        rx_thread_->join();
+        delete (rx_thread_);
+        rx_thread_ = NULL;
+    }
 
+    disable_chan(&rxone0_i_);
+    disable_chan(&rxone0_q_);
+    disable_chan(&rxone1_i_);
+    disable_chan(&rxone1_i_);
+    disable_chan(&rxtwo0_i_);
+    disable_chan(&rxtwo0_q_);
+    disable_chan(&rxtwo1_i_);
+    disable_chan(&rxtwo1_q_);
+    if(rx_buf_){
+        iio_buffer_destroy(rx_buf_);
+        rx_buf_ = NULL;
+    }
+}
+
+void antsdrDevice::stop_tx() {
+    disable_chan(&txone0_i_);
+    disable_chan(&txone0_q_);
+    disable_chan(&txone1_i_);
+    disable_chan(&txone1_i_);
+    disable_chan(&txtwo0_i_);
+    disable_chan(&txtwo0_q_);
+    disable_chan(&txtwo1_i_);
+    disable_chan(&txtwo1_q_);
+    if(tx_buf_){
+        iio_buffer_destroy(tx_buf_);
+        tx_buf_ = NULL;
+    }
+
+}

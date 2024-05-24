@@ -51,37 +51,34 @@ int main() {
         return -1;
     }
 
-    device.set_rx_gain(0,0,0);
-    device.set_rx_gain(0,1,0);
+    device.set_rx_gain(0,0,10);
+    device.set_rx_gain(0,1,40);
 
-    device.set_rx_gain(1,0,0);
-    device.set_rx_gain(1,1,0);
+    device.set_rx_gain(1,0,40);
+    device.set_rx_gain(1,1,40);
 
-    double freq = 5e9;
+    double freq = 1e9;
 
 
 
     device.set_rx_freq(0,freq);
     device.set_rx_freq(1,freq);
-//    device.set_tx_freq(0,2.4e9);
-//    device.set_tx_freq(1,4.8e9);
-
-    device.set_rx_samprate(0,4e6);
-    device.set_rx_samprate(1,4e6);
-
+//    device.set_tx_freq(0,freq);
+//    device.set_tx_freq(1,freq);
+//    device.set_tx_samprate(0,3e6);
+//    device.set_tx_samprate(1,3e6);
+    device.set_rx_samprate(0,3e6);
+    device.set_rx_samprate(1,3e6);
     if(device.set_multichip_phase_sync(freq) == 0){
         fprintf(stdout,"multichip sync true\n");
     }
     else{
         fprintf(stdout,"multichip sync false\n");
     }
-//    device.set_tx_samprate(0,4e6);
-//    device.set_tx_samprate(1,4e6);
     fprintf(stdout,"rx0 freq = %lf rx1 freq = %lf\n",device.get_rx_freq(0),device.get_rx_freq(1));
     fprintf(stdout,"tx0 freq = %lf tx1 freq = %lf\n",device.get_tx_freq(0),device.get_tx_freq(1));
     fprintf(stdout,"rx fs = %lf tx fs = %lf\n",device.get_rx_samprate(0),device.get_tx_samprate(0));
     fprintf(stdout,"rx1 fs = %lf tx1 fs = %lf\n",device.get_rx_samprate(1),device.get_tx_samprate(1));
-
 
 
     /**
@@ -93,9 +90,9 @@ int main() {
      * 0 1 0 1
      * */
      /*  */
-     int samples = 4096;
+     int samples = 1024;
+//    device.start_tx(1<<0);
     device.start_rx(get_rx_data,(1<<0 | 1<<1 | 1<<2 | 1<<3),NULL,samples);
-
 
     auto start_time = std::chrono::high_resolution_clock::now();
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -106,40 +103,38 @@ int main() {
         x_data.push_back(i);
     }
     plt::figure_size(900,300);
+    int cnt = 0;
     while(1){
         pthread_mutex_lock(&lock);
-//        diff_time = end_time - start_time;
-//        end_time = std::chrono::high_resolution_clock::now();
-//        if(diff_time.count() > 5){
-//            break;
-//        }
+        diff_time = end_time - start_time;
+        end_time = std::chrono::high_resolution_clock::now();
+        if(diff_time.count() > 10){
+            break;
+        }
         if(draw){
             plt::figure(1);
             plt::clf();
             plt::plot(x_data,recv1_i,"b");
             plt::plot(x_data,recv1_q,"g");
-
             plt::plot(x_data,recv2_i,"r");
             plt::plot(x_data,recv2_q,"y");
-
-            plt::draw();
-
-            plt::figure(2);
-            plt::clf();
-            plt::plot(x_data,recv3_i,"b");
-            plt::plot(x_data,recv3_q,"g");
-            plt::plot(x_data,recv4_i,"r");
-            plt::plot(x_data,recv4_q,"y");
-
-
+//            plt::draw();
+////
+//            plt::figure(2);
+//            plt::clf();
+            plt::plot(x_data,recv3_i,"c");
+            plt::plot(x_data,recv3_q,"m");
+            plt::plot(x_data,recv4_i,"k");
+            plt::plot(x_data,recv4_q,"#D95319");
             plt::draw();
             plt::pause(0.1);
 
             draw = false;
         }
-
+        cnt ++;
         pthread_mutex_unlock(&lock);
 //        sleep(1);
     }
+    device.stop_tx();
     return 0;
 }
